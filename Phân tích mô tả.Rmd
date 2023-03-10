@@ -1,0 +1,168 @@
+---
+title: "Định lượng"
+author: "Lộc"
+date: '2023-2-21'
+output: word_document
+---
+
+# Gọi packages:
+
+```{r, warning = F}
+pacman::p_load(rio, 
+               here, 
+               janitor, 
+               tidyverse, 
+               dplyr,
+               magrittr, 
+               ggplot2, 
+               purrr, 
+               lubridate, 
+               mice, 
+               plotly)
+```
+
+## Nhập dữ liệu:
+
+```{r, include = F}
+NC_dat<-import("C:\\Users\\locca\\Documents\\Xuân Lộc\\Data_NCKH.xlsx")
+```
+
+```{r}
+# Xử lí dữ liệu: Chia bộ dữ liệu thành 2 phần:
+NC_dat1<-NC_dat %>% 
+  select(-c(QoF,QoCU,QoEX,QoIN,QoCO,QoT)) %>% 
+  mutate(Age = replace(Age,
+                       Age == "2003", 
+                       "Dưới 22 tuổi")) %>% 
+  
+  mutate(Prior = replace(Prior,
+                         Prior == "Phương tiện khác (Xe khách, máy bay, ....)",
+                         "Khác")) %>% 
+  
+  mutate(Goods= recode(Goods,
+         "Ghế mềm (ghế nệm êm, ngồi xuyên suốt chuyến đi)" = "Ghế mềm",
+         "Ghế cứng (ghế gỗ ngồi xuyên suốt chuyến đi)" = "Ghế cứng")
+  ) %>% 
+  mutate(across(contains("Qo"),
+             ~recode(.,
+                  "Rất hài lòng" = 5,
+                  "Hài lòng" = 4,
+                  "Bình thường" = 3,
+                  "Không hài lòng" = 2,
+                  "Rất không hài lòng" = 1))) %>% 
+  mutate(Exper=if_else(Exper=="Rồi",1,0),
+         Prior=if_else(Prior=="Tàu lửa",1,0),
+         Sex=if_else(Sex=="Nam",1,0)) %>% 
+  mutate(across(c(Reas,Par,Status,Goods,Age),
+         ~as.factor(.))
+  )
+         
+NC_dat2<-NC_dat %>% 
+  select(c(QoF,QoCU,QoEX,QoIN,QoCO,QoT))
+```
+
+## Transform dataset NC_dat1 to NC_dat3 to easy to implement PLS sem:
+```{r}
+dat_for_NC<-NC_dat1 %>% 
+  select(contains("Qo")) %>% 
+  select(-c("QoF3","QoCU5","QoIN1")) %>%
+  rename(QoF3 = QoF4,
+         QoF4 = QoT1,
+         QoF5 = QoT2,
+         QoF6 = QoT3,
+         QoF7 = QoT4)
+```
+
+## Phân tích đơn biến: {.tabset}
+
+### Bảng mô tả:
+
+```{r}
+#Mô tả bộ dữ liệu theo Nam và Nữ
+library(table1)
+table1(~Exper+Age+Sex+Status+Reas+Par+Goods+Prior, data=NC_dat1)
+
+#Mô tả phần trăm % về Sex và Age trong việc ưu tiên phương tiện vận chuyển Prior:
+NC_dat1%>% 
+  group_by(Sex) %>% 
+  count(Prior,Age) %>%
+  adorn_totals(where = "row") %>% 
+  adorn_percentages("col") %>% 
+  adorn_pct_formatting() %>% 
+  adorn_ns()
+
+```
+
+### Biểu đồ:
+
+```{r}
+ggplot(NC_dat1) +
+  geom_bar(mapping = aes(x=Exper, fill = Sex), position = "dodge",width = 0.7)+
+  labs(title="Số lượng nam và nữ về việc từng trải nghiệm đường sắt",
+       y="Số người")+
+  theme_minimal()+
+  coord_flip()
+
+ggplot(NC_dat1) +
+  geom_bar(mapping = aes(x=Prior, fill = Sex), position = "dodge")+
+  labs(title="Số lượng nam và nữ về việc ưu tiên phương tiện vận chuyển")
+  
+
+```
+
+**Gỉa thiết H1**: Có khả năng trước đây phương tiện ở VN được ưa chuộng
+chủ yếu là tàu lửa có thể vì giá thành đảm bảo và sự an toàn. Bây giờ
+nhìu ng dù đã từng đi có trải nghiệm về tàu lửa nhưng vẫn lựa chọn
+phương tiện khác -->Mất KH.
+
+**Gỉa thiết H2**: Những ng chưa có trải nghiệm đi tàu lửa sẽ ưu tiên tàu lửa làm phương tiện vận 
+
+**Gỉa thiết H3**: Có sự khác biệt giữa Nam và Nữ và độ tuổi trong việc lựa chọn 
+phương tiện vận chuyển.
+
+### Phân tích effect size:
+```{r}
+#Tạo matrix 2x2 tên là m:
+(m <- xtabs(~ Prior + Exper, data = NC_dat1)) 
+#Phân tích theo 2 cách:
+epiR::epi.2by2(m,method="cohort.count",conf.level=0.95)
+```
+```{r}
+#Phân tích theo prop.test:
+prop.test(m)
+```
+#Phân tích effect size:
+```{r}
+vcd::assocstats(m)
+```
+### Phân tích ANOVA Two-Factor với biến Age và Sex:
+
+**Nhận xét**: 
+-Có sự khác biệt giữa 2 nhóm. -Sự khác biệt là khoảng 33.65%.
+-Correlation effect size (r = 0.4) là medium effect size.
+
+```{r}
+m1<-NC_dat1 %>% 
+  select(Age,Sex,Status,Exper,Prior,Reas,Par,Goods)
+
+view(m1)
+
+psych::pairs.panels(m1, main="Scatterplot Matix",method="pearson")
+```
+## Xây dựng mô hình:
+
+```{r}
+#Mô tả correlation giữa các biến trong model regression:
+library(ggcorrplot)
+plot<-model.matrix(~0+., 
+                  data=NC_dat1 %>% select(Prior,Exper,Sex))%>% 
+                  cor(use="pairwise.complete.obs") %>% 
+    ggcorrplot(show.diag=FALSE, type="lower", lab=TRUE, lab_size=2)
+
+print(plot)
+
+#Xuất model
+reg1<-rms::lrm(Prior~Exper+Sex+Status
+               ,data=NC_dat1)
+reg1
+```

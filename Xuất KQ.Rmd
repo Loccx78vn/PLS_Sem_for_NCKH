@@ -1,0 +1,23 @@
+---
+title: "Xuất KQ"
+author: "Lộc"
+date: '2023-03-01'
+output: html_document
+---
+
+#Phát biểu kết quả model:
+
+```{r}
+library(parameters)
+loadings_cfa1<-model_parameters(SEM_model,
+                                standardize = TRUE,
+                                component = c("loading"))
+print(loadings_cfa1)
+
+```
+
+```{r, warning = T}
+pdf("Rplot.pdf",width=25)
+ggsem(SEM_model3)
+dev.off() 
+```

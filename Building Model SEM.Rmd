@@ -1,0 +1,77 @@
+---
+title: "Model SEM"
+author: "Lộc"
+date: '2023-02-24'
+output: pdf_document
+---
+## Model 2:
+```{r}
+my_SEM2 <-#Set path correlation
+         'DVPT =~ QoF1+QoF2+QoF4+QoT1+QoT2+QoT3+QoT4
+          TLHK =~ QoCU1+QoCU2+QoCU3+QoCU4+QoCU6
+          KNND =~ QoIN1+QoIN2+QoIN3
+          TMDT =~ QoIN4+QoIN5
+          CPDT =~ QoCO1+QoCO2+QoCO3+QoCO4
+          Satisfication=~DVPT+TLHK+KNND+TMDT+CPDT'
+          
+        
+library(lavaan)
+SEM_model2<- cfa(my_SEM2, 
+                 data = NC_dat1)
+
+summary(SEM_model2,
+        fit.measures=TRUE,
+        standardized=TRUE)
+
+
+#Vẽ mô hình SEM:
+ggsem(SEM_model2)
+
+#Modification:
+modindices(SEM_model2,sort=TRUE,maximum.number = 10)
+```
+
+
+## Model 3:
+```{r}
+my_SEM3 <-'#Set path correlation:
+          DVPT =~ QoF1+QoF2+QoF4+QoT1+QoT2+QoT3+QoT4
+          TLHK =~ QoCU1+QoCU2+QoCU3+QoCU4+QoCU6
+          KNND =~ QoIN1+QoIN2+QoIN3
+          TMDT =~ QoIN4+QoIN5
+          CPDT =~ QoCO1+QoCO2+QoCO3+QoCO4
+          #Measurement model:
+          Satisfication=~DVPT+TLHK+KNND+TMDT+CPDT
+          #Set corvariance:
+          KNND ~~ TMDT'
+
+
+library(lavaan)
+SEM_model3<- sem(my_SEM3, 
+                 data = NC_dat1)
+
+summary(SEM_model3,
+        fit.measures=TRUE,
+        standardized=TRUE)
+        
+#Vẽ mô hình SEM:
+ggsem(SEM_model3)
+
+#Modification: 
+modindices(SEM_model3,sort=TRUE,maximum.number = 10)
+```
+## So sánh các model:
+```{r}
+#Xuất các chỉ số đánh giá mô hình:
+f<-function(model) {
+    fitMeasures(model, 
+                fit.measures = c("cfi", "tli", "rmsea", "gfi", "chisq", "df", "fmin", "ifi"))
+}
+
+f(SEM_model1)
+
+f(SEM_model2)
+
+f(SEM_model3)
+
+```

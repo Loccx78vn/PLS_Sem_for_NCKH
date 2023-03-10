@@ -1,0 +1,53 @@
+---
+title: "PLSsem_model_forNCKH"
+author: "Lộc"
+date: "2023-03-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Call packages:
+```{r}
+library(seminr)
+```
+
+## Define measurement model:
+```{r}
+PLSsem_mm <- constructs(
+  composite("DVPT", multi_items("QoF", 1:7)),
+                                
+  composite("TLHK", multi_items("QoCU", c(1:4,6))),
+  
+  composite("KNND", multi_items("QoIN", 2:3)),
+  
+  composite("TMDT", multi_items("QoIN",4:5)),
+                                  
+  composite("CPDT", multi_items("QoCO",1:4))
+)
+```
+
+```{r}
+
+```
+
+## Define structure model:
+```{r}
+PLSsem_sm <- relationships(
+  paths(from =c()
+)
+```
+
+## Define PLS sem model:
+```{r}
+PLSsem_model <- estimate_pls(
+  data = NC_dat3,
+  measurement_model = PLSsem_mm,
+  structural_model  = PLSsem_sm,
+  inner_weights = path_weighting,
+  missing = mean_replacement,
+  missing_value = "-99")
+
+```

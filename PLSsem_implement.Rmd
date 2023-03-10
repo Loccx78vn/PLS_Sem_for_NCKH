@@ -1,0 +1,162 @@
+---
+title: "PLSsem_implement"
+author: "Lộc"
+date: "2023-03-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Callpackages
+```{r}
+library("semPLS")
+```
+
+#Define measurement model:
+```{r}
+source=c(rep("DVPT",7),
+         rep("TLHK",5),
+         rep("KNND",2),
+         rep("TMDT",2),
+         rep("CPDT",4))
+target=c(str_c("QoF",c(1:2,4),sep=""),
+         str_c("QoT",c(1:4),sep=""),
+         str_c("QoCU",c(1:4,6),sep=""),
+         str_c("QoIN",2:3,sep=""),
+         str_c("QoIN",4:5,sep=""),
+         str_c("QoCO",1:4,sep="")
+)
+NCKH_mm<-cbind(source,target)
+
+NCKH_mm<-as.matrix(NCKH_mm)
+```
+
+#Define structure model:
+```{r}
+source=c("KNND","TMDT","CPDT","DVPT","CPDT","CPDT","DVPT")
+
+target=c("TLHK","TLHK","TLHK","TLHK","TMDT","DVPT","TMDT")
+
+NCKH_sm<-cbind(source,target)
+
+NCKH_sm<-as.matrix(NCKH_sm)
+```
+
+# Gỉa thuyết:
+H1: KNND related với TLHK vì nhà ga ở vị trí đông đúc và có bảng hiệu chỉ dẫn cụ thế sẽ làm tăng "Sự chắc chắn đến nơi cần đến" (QoCU1) và "Sự dễ dàng trong việc thực hiện chuyến đi" (QoCU2).
+H2: TMDT related với TLHK vì "Sự hiện đại của toa tàu" (QoIN4) có thể tăng "Sự chắc chắn đến nơi cần đến" (QoCU1).
+H3: CPDT related với TLHK vì khách hàng đặt "Vé tàu"(QoCU4) với các Class cao hơn thì sẽ mong được đón nhận với "Thái độ nhân viên" (QoCU3) tốt hơn.
+H4: DVPT related với TLHK vì các biến liên quan tới sự vệ sinh trong toa tàu sẽ có thể tăng "Sự cam kết an toàn trong suốt hành trình" (QoCU2) như không bị các vấn đề về sức khỏe.
+H5: CPDT related với DVPT vì với những khoản tiền khách hàng bỏ ra như "Vé tàu" (QoCO1) và "Tiền đồ ăn..." (QoCO2) sẽ mong được nhận lại các chất lượng tốt như về "Mùi vị món ăn" (QoF1),"Mức độ đa dạng của thực đơn" (QoF4).
+H6: CPDT related với TMDT vì các khoản phí về "Vé tàu" (QoCO1) và "Phí phạt..." (QoCO3),"Phí dịch vụ hỗ trợ đặc biệt" (QoCO4) sẽ có thể làm người đặt vé cảm thấy dễ dàng hoặc khó chịu về "Dịch vụ đặt vé" (QoS4).
+H7: DVPT related vưới TMDT vì các biến liên quan tới sự vệ sinh trong toa tàu sẽ đánh giá được "Sự thoáng mát của tàu lửa" (QoIN5) và vì tàu lửa chỉ là dạng phương tiện bình dân nên nhìu người sẽ thông qua các biến đó để đánh giá "Sự hiện đại của tàu lửa" (QoIN4)
+
+
+
+# Tạo biến PLS sem:
+```{r,warning=T}
+#Creating an object suited for use with the fitting function sempls:
+NCKH <- plsm(data = NC_dat3, strucmod = NCKH_sm, measuremod = NCKH_mm)
+
+#Creating object PLSsem:
+NCKH_pls <- sempls(model = ECSI, data = mobi, wscheme = "centroid")
+```
+
+
+```{r}
+mvpairs(model = ECSI, data = mobi, LVs = "")
+```
+
+```{r}
+#Display graphic
+pathDiagram(ecsi, 
+            file = "ecsiStructure", 
+            full = FALSE, #only the structural model is processed.
+            edge.labels = "both", #names of the parameters and values are both printed
+            output.type = "graphics", #
+            digits = 2,
+            graphics.fmt = "pdf")
+ecsi
+```
+
+# Mô tả các criteria indexs của model:
+```{r}
+names(ecsi)
+```
+
+```{r}
+#Xuất R^2 của model
+rSquared(ecsi)
+
+#Xuất giá trị Dillon-Goldstein's rho
+dgrho(ecsi)
+```
+
+```{r}
+#Xuất Path coeffection 
+pC <- pathCoeff(ecsi)
+print(pC, abbreviate = TRUE, minlength = 3)
+```
+
+```{r}
+#Xuất total effect:
+tE <- totalEffects(ecsi)
+print(tE, abbreviate = TRUE, minlength = 3)
+```
+
+
+```{r}
+#Xuất kết quả outer weights:
+plsWeights(ecsi)
+```
+
+```{r}
+#Xuất kết quả loadings của model:
+lE<-plsLoadings(ecsi)
+print(lE,abbreviate = TRUE, minlength = 3,reldiff=0.2)
+
+```
+```{r}
+plsLoadings(ecsi)
+```
+-->Chỉ số loadings có thể dùng để check discriminant validity.(Cho plsLoadings() vào object và print thêm argument reldiff=0.2)
+
+```{r}
+ecsi$cross_loadings
+```
+# Booptrap to estimate
+```{r}
+#Using booptrap method to estimate outer loadings and path coefficients
+set.seed(123)
+ecsiBoot <- bootsempls(ecsi, nboot = 500, start = "ones", verbose = FALSE)
+ecsiBoot
+```
+
+
+```{r}
+#Plotting 
+densityplot(ecsi, use = "residuals")
+```
+
+
+```{r}
+#Calculating confidence intervals based on the percentile method
+ecsiBootsummary <- summary(ecsiBoot, type = "bca", level = 0.9)
+ecsiBootsummary
+```
+
+
+```{r}
+#Plotting kernel density estimates:
+densityplot(ecsiBoot, pattern = "beta")
+
+#Plotting parallel coordinates:
+parallelplot(ecsiBoot, 
+             pattern = "beta", 
+             reflinesAt = c(0, 0.5),
+             alpha = 0.3, 
+             type = "bca",
+             main = "Path Coefficients\nof 500 bootstrap samples")
+
+```
